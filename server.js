@@ -7,12 +7,13 @@ const app = express();
 app.use(express.json());
 app.use(cors());
 
-// Load credentials from environment variables
+// Environment variables for Batch Leads credentials
 const { BATCHLEADS_EMAIL, BATCHLEADS_PASSWORD } = process.env;
 
-// Function to fetch Bearer Token
+// Function to fetch a new Bearer Token
 const getBearerToken = async () => {
     try {
+        console.log("Generating Bearer Token...");
         const response = await axios.post('https://api-server.batchleadstacker.com/app/login', {
             email: BATCHLEADS_EMAIL,
             password: BATCHLEADS_PASSWORD,
@@ -26,13 +27,16 @@ const getBearerToken = async () => {
         }
     } catch (error) {
         console.error("Error generating token:", error.response?.data || error.message);
-        throw new Error("Failed to generate token. Verify your credentials or plan.");
+        throw new Error("Failed to generate token. Verify credentials or API access.");
     }
 };
 
 // Function to fetch property data from Batch Leads API
 const fetchPropertyData = async (address, token) => {
     try {
+        console.log("Sending property lookup request with token:", token);
+        console.log("Address payload:", { requests: [{ address: { street: address } }] });
+
         const response = await axios.post(
             'https://api.batchdata.com/api/v1/property/lookup/all-attributes',
             {
@@ -48,6 +52,7 @@ const fetchPropertyData = async (address, token) => {
         );
 
         if (response.data?.results?.properties?.length) {
+            console.log("Property data fetched successfully.");
             return response.data.results.properties[0];
         } else {
             throw new Error("No property data found for the given address.");
@@ -58,7 +63,7 @@ const fetchPropertyData = async (address, token) => {
     }
 };
 
-// Endpoint for handling property lookup
+// Endpoint to handle property lookup
 app.post('/property', async (req, res) => {
     const { address } = req.body;
 
@@ -69,26 +74,24 @@ app.post('/property', async (req, res) => {
     try {
         console.log("Looking up property for address:", address);
 
-        // Step 1: Fetch Bearer Token
+        // Step 1: Generate a new Bearer Token
         let token = await getBearerToken();
 
-        // Step 2: Attempt property lookup
+        // Step 2: Fetch property data
         try {
             const propertyData = await fetchPropertyData(address, token);
             return res.status(200).json({ property: propertyData });
         } catch (error) {
-            // Retry if token is invalid
             if (error.response?.status === 401) {
-                console.warn("Invalid token. Regenerating token...");
-                token = await getBearerToken(); // Refresh the token
-                const retryResponse = await fetchPropertyData(address, token);
-                return res.status(200).json({ property: retryResponse });
+                console.warn("Invalid token detected. Retrying with a new token...");
+                token = await getBearerToken();
+                const retryPropertyData = await fetchPropertyData(address, token);
+                return res.status(200).json({ property: retryPropertyData });
             }
-
             throw error;
         }
     } catch (error) {
-        console.error("Error:", error.response?.data || error.message);
+        console.error("Error in /property endpoint:", error.response?.data || error.message);
         return res.status(500).json({
             error: "Failed to fetch property data.",
             details: error.response?.data || error.message,
@@ -98,4 +101,4 @@ app.post('/property', async (req, res) => {
 
 // Start the server
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`Server is running on https://skip-tracing.onrender.com`));
+app.listen(PORT, () => console.log(`Server is running at https://skip-tracing.onrender.com`));
