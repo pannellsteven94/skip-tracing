@@ -5,6 +5,7 @@ const axios = require('axios');
 const app = express();
 app.use(express.json());
 
+// Environment variables for authentication
 const BATCHLEADS_EMAIL = process.env.BATCHLEADS_EMAIL;
 const BATCHLEADS_PASSWORD = process.env.BATCHLEADS_PASSWORD;
 
@@ -29,27 +30,24 @@ async function getBearerToken() {
 
 // Endpoint to fetch property details
 app.post('/property', async (req, res) => {
-    const { street, city, state, zip } = req.body;
+    const { address } = req.body;
 
-    if (!street || !city || !state || !zip) {
-        return res.status(400).json({ error: "All address fields (street, city, state, zip) are required" });
+    if (!address) {
+        return res.status(400).json({ error: "Address is required" });
     }
 
     try {
         // Fetch Bearer Token
         const token = await getBearerToken();
 
-        // Batch Data API request
-        const response = await axios.post(
+        // Send request to Batch Data API
+        const propertyResponse = await axios.post(
             'https://api.batchdata.com/api/v1/property/lookup/all-attributes',
             {
                 requests: [
                     {
                         address: {
-                            street,
-                            city,
-                            state,
-                            zip
+                            street: address, // Assuming a single line input address
                         }
                     }
                 ]
@@ -58,13 +56,22 @@ app.post('/property', async (req, res) => {
                 headers: {
                     Authorization: `Bearer ${token}`,
                     'Content-Type': 'application/json',
-                    Accept: 'application/json, application/xml'
+                    Accept: 'application/json'
                 }
             }
         );
 
-        // Send property data to the frontend
-        res.json(response.data);
+        if (
+            !propertyResponse.data ||
+            !propertyResponse.data.results ||
+            !propertyResponse.data.results.properties
+        ) {
+            return res.status(404).json({ error: "No property data found." });
+        }
+
+        // Send back the first property result
+        const propertyData = propertyResponse.data.results.properties[0];
+        res.json({ property: propertyData });
     } catch (error) {
         console.error("Error fetching property data:", error.response?.data || error.message);
         res.status(500).json({ error: "Failed to fetch property data", details: error.message });
