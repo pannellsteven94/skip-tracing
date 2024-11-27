@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Property Skip Tracer</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f4f4f4;
+            color: #333;
+        }
+
+        .property-skip-tracer-widget {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+
+        .property-skip-tracer-widget h1 {
+            font-size: 24px;
+            margin-bottom: 20px;
+            color: #007bff;
+            text-align: center;
+        }
+
+        .property-skip-tracer-widget input {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+
+        .property-skip-tracer-widget button {
+            width: 100%;
+            padding: 10px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+
+        .property-skip-tracer-widget button:hover {
+            background-color: #0056b3;
+        }
+
+        .results {
+            margin-top: 20px;
+        }
+
+        .category {
+            margin-bottom: 20px;
+            padding: 15px;
+            background-color: #f9f9f9;
+            border-radius: 10px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+
+        .category h2 {
+            font-size: 20px;
+            color: #004085;
+            margin-bottom: 10px;
+        }
+
+        .row {
+            display: flex;
+            justify-content: space-between;
+            padding: 5px 0;
+            border-bottom: 1px solid #ddd;
+        }
+
+        .row span {
+            font-weight: bold;
+        }
+
+        .row span.value {
+            font-weight: normal;
+            color: #555;
+        }
+
+        .row:last-child {
+            border-bottom: none;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="property-skip-tracer-widget">
+        <h1>Property Record</h1>
+        <form id="propertySkipTraceForm">
+            <input type="text" id="address" name="address" value="123 Main Street, Springfield, OH 44301" required>
+            <button type="submit">Submit</button>
+        </form>
+
+        <!-- Results will be injected here -->
+        <div id="resultsContainer" class="results"></div>
+    </div>
+
+    <script>
+        document.getElementById('propertySkipTraceForm').addEventListener('submit', function(event) {
+            event.preventDefault(); // Prevent form submission
+
+            const address = "123 Main Street, Springfield, OH 44301"; // Standardized formatting for Property Address
+
+            // Mock data for results
+            const results = {
+                address: {
+                    "Property Address": address,
+                    "Tax Mailing Address": "1856 Coventry St, Akron, OH 44301-3211"
+                },
+                ownershipInfo: {
+                    "Owner 1": "Edward Boudinot",
+                    "Owner 2": "Jane Smith"
+                },
+                contactInfo: {
+                    phones: ["330-923-1287", "330-555-6789"],
+                    emails: ["edward@example.com", "jane@example.com"]
+                },
+                estimatedValue: {
+                    "Estimated Value": "$250,000",
+                    "Price Range Min": "$240,000",
+                    "Price Range Max": "$260,000"
+                },
+                currentMortgage: {
+                    "Lender Name": "CAPITOL COMMERCE MTG CO",
+                    "Loan Amount": "$160,500",
+                    "Loan Term (Months)": 360,
+                    "Interest Rate": "6.43%"
+                },
+                otherProperties: [
+                    "456 Elm Street, Springfield, USA",
+                    "789 Oak Avenue, Springfield, USA"
+                ],
+                taxInformation: {
+                    "Parcel #": "67-02405",
+                    "Total Assessed Value": "$59,190",
+                    "Total Market Value": "$169,100",
+                    "Property Tax": "$3,196",
+                    "Assessment Year": "2023"
+                },
+                lastSale: [
+                    { date: "01/01/2020", salePrice: "$150,000", buyer: "Edward Boudinot", seller: "John Doe" }
+                ],
+                mlsInformation: {
+                    "Status": "Pending",
+                    "Listing Price": "$215,000",
+                    "Listing Date": "10/14/2024",
+                    "Days on Market": "44",
+                    "Description": "Beautiful 5-bedroom brick home featuring a remodeled kitchen, spacious deck, and upgraded HVAC system."
+                },
+                foreclosureInformation: {
+                    "Document Number": "N/A",
+                    "Document Type": "Notice of Foreclosure Sale",
+                    "Foreclosure Status": "Notice of Sale",
+                    "Unpaid Amount": "N/A",
+                    "Opening Bid": "N/A",
+                    "Lender Name": "N/A",
+                    "Recording Date": "10/30/2024",
+                    "Auction Date": "12/13/2024",
+                    "Loan Default Date": "N/A",
+                    "Loan Number": "N/A",
+                    "Phone": "330-643-2278",
+                    "Care of Name": "N/A",
+                    "Trustee/Attorney Name": "Kandy Fatheree",
+                    "Case Number": "CV2022113732",
+                    "Borrower 1 Name": "N/A",
+                    "Trustee Address": "209 S High St"
+                }
+            };
+
+            // Generate results HTML
+            const resultsContainer = document.getElementById('resultsContainer');
+            resultsContainer.innerHTML = `
+                <div class="category">
+                    <h2>Address</h2>
+                    ${Object.entries(results.address).map(([key, value]) => `
+                        <div class="row"><span>${key}:</span> <span class="value">${value}</span></div>
+                    `).join('')}
+                </div>
+                <div class="category">
+                    <h2>Ownership Information</h2>
+                    ${Object.entries(results.ownershipInfo).map(([key, value]) => `
+                        <div class="row"><span>${key}:</span> <span class="value">${value}</span></div>
+                    `).join('')}
+                </div>
+                <div class="category">
+                    <h2>Contact Information</h2>
+                    ${results.contactInfo.phones.map((phone, index) => `
+                        <div class="row"><span>Phone ${index + 1}:</span> <span class="value">${phone}</span></div>
+                    `).join('')}
+                    ${results.contactInfo.emails.map((email, index) => `
+                        <div class="row"><span>Email ${index + 1}:</span> <span class="value">${email}</span></div>
+                    `).join('')}
+                </div>
+                <div class="category">
+                    <h2>Market Value</h2>
+                    ${Object.entries(results.estimatedValue).map(([key, value]) => `
+                        <div class="row"><span>${key}:</span> <span class="value">${value}</span></div>
+                    `).join('')}
+                </div>
+                <div class="category">
+                    <h2>Current Mortgage</h2>
+                    ${Object.entries(results.currentMortgage).map(([key, value]) => `
+                        <div class="row"><span>${key}:</span> <span class="value">${value}</span></div>
+                    `).join('')}
+                </div>
+				<div class="category">
+                    <h2>Last Sale</h2>
+                    <div class="row"><span>Date:</span> <span class="value">${results.lastSale[0].date}</span></div>
+                    <div class="row"><span>Sale Price:</span> <span class="value">${results.lastSale[0].salePrice}</span></div>
+                    <div class="row"><span>Buyer:</span> <span class="value">${results.lastSale[0].buyer}</span></div>
+                    <div class="row"><span>Seller:</span> <span class="value">${results.lastSale[0].seller}</span></div>
+                </div>
+                <div class="category">
+                    <h2>Other Properties Owned</h2>
+                    ${results.otherProperties.map(address => `
+                        <div class="row"><span>Address:</span> <span class="value">${address}</span></div>
+                    `).join('')}
+                </div>
+                <div class="category">
+                    <h2>Tax Information</h2>
+                    ${Object.entries(results.taxInformation).map(([key, value]) => `
+                        <div class="row"><span>${key}:</span> <span class="value">${value}</span></div>
+                    `).join('')}
+                </div>
+                <div class="category">
+                    <h2>MLS Information</h2>
+                    ${Object.entries(results.mlsInformation).map(([key, value]) => `
+                        <div class="row"><span>${key}:</span> <span class="value">${value}</span></div>
+                    `).join('')}
+                </div>
+                <div class="category">
+                    <h2>Foreclosure Information</h2>
+                    ${Object.entries(results.foreclosureInformation).map(([key, value]) => `
+                        <div class="row"><span>${key}:</span> <span class="value">${value}</span></div>
+                    `).join('')}
+                </div>
+            `;
+        });
+    </script>
+
+</body>
+</html>
