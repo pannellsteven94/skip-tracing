@@ -29,29 +29,41 @@ async function getBearerToken() {
 
 // Endpoint to fetch property details
 app.post('/property', async (req, res) => {
-    const { address } = req.body;
+    const { street, city, state, zip } = req.body;
 
-    if (!address) {
-        return res.status(400).json({ error: "Address is required" });
+    if (!street || !city || !state || !zip) {
+        return res.status(400).json({ error: "All address fields (street, city, state, zip) are required" });
     }
 
     try {
         // Fetch Bearer Token
         const token = await getBearerToken();
-        console.log("Bearer Token:", token);
 
-        // Fetch property data
+        // Batch Data API request
         const response = await axios.post(
-            'https://api.batchleads.io/v1/properties',
-            { address },
+            'https://api.batchdata.com/api/v1/property/lookup/all-attributes',
+            {
+                requests: [
+                    {
+                        address: {
+                            street,
+                            city,
+                            state,
+                            zip
+                        }
+                    }
+                ]
+            },
             {
                 headers: {
                     Authorization: `Bearer ${token}`,
-                    'Content-Type': 'application/json'
+                    'Content-Type': 'application/json',
+                    Accept: 'application/json, application/xml'
                 }
             }
         );
 
+        // Send property data to the frontend
         res.json(response.data);
     } catch (error) {
         console.error("Error fetching property data:", error.response?.data || error.message);
