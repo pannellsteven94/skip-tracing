@@ -10,7 +10,7 @@ app.use(cors());
 // Environment variables for Batch Leads credentials
 const { BATCHLEADS_EMAIL, BATCHLEADS_PASSWORD } = process.env;
 
-// Function to fetch a new Bearer Token
+// Function to generate a Bearer Token
 const getBearerToken = async () => {
     try {
         console.log("Generating Bearer Token...");
@@ -23,24 +23,45 @@ const getBearerToken = async () => {
             console.log("Bearer Token generated successfully.");
             return response.data.data.token;
         } else {
-            throw new Error("Token generation failed: " + JSON.stringify(response.data));
+            throw new Error("Token generation failed. Response: " + JSON.stringify(response.data));
         }
     } catch (error) {
         console.error("Error generating token:", error.response?.data || error.message);
-        throw new Error("Failed to generate token. Verify credentials or API access.");
+        throw new Error("Failed to generate token. Verify your credentials or account status.");
     }
 };
 
-// Function to fetch property data from Batch Leads API
+// Function to fetch property data from Batch Leads
 const fetchPropertyData = async (address, token) => {
     try {
-        console.log("Sending property lookup request with token:", token);
-        console.log("Address payload:", { requests: [{ address: { street: address } }] });
+        console.log("Sending property lookup request...");
+        console.log("Using Token:", token);
+        console.log("Address payload:", {
+            requests: [
+                {
+                    address: {
+                        street: address.street,
+                        city: address.city,
+                        state: address.state,
+                        zip: address.zip,
+                    },
+                },
+            ],
+        });
 
         const response = await axios.post(
             'https://api.batchdata.com/api/v1/property/lookup/all-attributes',
             {
-                requests: [{ address: { street: address } }],
+                requests: [
+                    {
+                        address: {
+                            street: address.street,
+                            city: address.city,
+                            state: address.state,
+                            zip: address.zip,
+                        },
+                    },
+                ],
             },
             {
                 headers: {
@@ -55,7 +76,7 @@ const fetchPropertyData = async (address, token) => {
             console.log("Property data fetched successfully.");
             return response.data.results.properties[0];
         } else {
-            throw new Error("No property data found for the given address.");
+            throw new Error("No property data found for the provided address.");
         }
     } catch (error) {
         console.error("Error fetching property data:", error.response?.data || error.message);
@@ -67,14 +88,14 @@ const fetchPropertyData = async (address, token) => {
 app.post('/property', async (req, res) => {
     const { address } = req.body;
 
-    if (!address) {
-        return res.status(400).json({ error: "Address is required." });
+    if (!address || !address.street || !address.city || !address.state || !address.zip) {
+        return res.status(400).json({ error: "Invalid address format. Street, city, state, and zip are required." });
     }
 
     try {
-        console.log("Looking up property for address:", address);
+        console.log("Looking up property for:", address);
 
-        // Step 1: Generate a new Bearer Token
+        // Step 1: Generate a Bearer Token
         let token = await getBearerToken();
 
         // Step 2: Fetch property data
@@ -83,7 +104,7 @@ app.post('/property', async (req, res) => {
             return res.status(200).json({ property: propertyData });
         } catch (error) {
             if (error.response?.status === 401) {
-                console.warn("Invalid token detected. Retrying with a new token...");
+                console.warn("Invalid token detected. Regenerating token...");
                 token = await getBearerToken();
                 const retryPropertyData = await fetchPropertyData(address, token);
                 return res.status(200).json({ property: retryPropertyData });
@@ -101,4 +122,4 @@ app.post('/property', async (req, res) => {
 
 // Start the server
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`Server is running at https://skip-tracing.onrender.com`));
+app.listen(PORT, () => console.log(`Server running on https://skip-tracing.onrender.com`));
