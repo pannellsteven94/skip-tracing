@@ -7,10 +7,9 @@ const app = express();
 app.use(express.json());
 app.use(cors());
 
-// Load environment variables
 const { BATCHLEADS_EMAIL, BATCHLEADS_PASSWORD } = process.env;
 
-// Function to generate Bearer Token
+// Function to get Bearer Token
 const getBearerToken = async () => {
     try {
         const response = await axios.post('https://api-server.batchleadstacker.com/app/login', {
@@ -22,11 +21,11 @@ const getBearerToken = async () => {
             console.log("Bearer Token generated successfully");
             return response.data.data.token;
         } else {
-            throw new Error("Token generation failed: " + JSON.stringify(response.data));
+            throw new Error("Failed to generate token: " + JSON.stringify(response.data));
         }
     } catch (error) {
-        console.error("Error generating Bearer Token:", error.response?.data || error.message);
-        throw new Error("Invalid credentials or expired plan. Check your Batch Leads account.");
+        console.error("Error generating token:", error.response?.data || error.message);
+        throw new Error("Invalid credentials or expired plan.");
     }
 };
 
@@ -36,11 +35,7 @@ const fetchPropertyData = async (address, token) => {
         const response = await axios.post(
             'https://api.batchdata.com/api/v1/property/lookup/all-attributes',
             {
-                requests: [
-                    {
-                        address: { street: address }
-                    }
-                ]
+                requests: [{ address: { street: address } }]
             },
             {
                 headers: {
@@ -52,17 +47,16 @@ const fetchPropertyData = async (address, token) => {
         );
 
         if (response.data?.results?.properties?.length) {
-            return response.data.results.properties[0]; // Return the first property
+            return response.data.results.properties[0];
         } else {
-            throw new Error("No property data found for the given address.");
+            throw new Error("No property data found.");
         }
     } catch (error) {
-        console.error("Error fetching property data:", error.response?.data || error.message);
-        throw error; // Let the caller handle the error
+        throw error;
     }
 };
 
-// Endpoint to handle property lookups
+// Endpoint for property lookup
 app.post('/property', async (req, res) => {
     const { address } = req.body;
 
@@ -73,26 +67,21 @@ app.post('/property', async (req, res) => {
     try {
         console.log("Fetching property data for address:", address);
 
-        // Step 1: Generate Bearer Token
         let token = await getBearerToken();
-
         try {
-            // Step 2: Fetch property data using token
             const propertyData = await fetchPropertyData(address, token);
             return res.status(200).json({ property: propertyData });
         } catch (error) {
-            // Step 3: Retry with a refreshed token if token is invalid
             if (error.response?.status === 401) {
                 console.warn("Invalid token detected. Retrying with a new token...");
-                token = await getBearerToken(); // Refresh the token
-                const propertyData = await fetchPropertyData(address, token);
-                return res.status(200).json({ property: propertyData });
+                token = await getBearerToken();
+                const retryResponse = await fetchPropertyData(address, token);
+                return res.status(200).json({ property: retryResponse });
             }
-
-            // If not a token issue, propagate the error
             throw error;
         }
     } catch (error) {
+        console.error("Error fetching property data:", error.response?.data || error.message);
         res.status(500).json({
             error: "Failed to fetch property data",
             details: error.response?.data || error.message,
@@ -100,6 +89,6 @@ app.post('/property', async (req, res) => {
     }
 });
 
-// Start the server
+// Start server
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
