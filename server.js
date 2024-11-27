@@ -10,44 +10,41 @@ app.use(cors());
 // Environment variables for Batch Leads credentials
 const { BATCHLEADS_EMAIL, BATCHLEADS_PASSWORD } = process.env;
 
+// Store the token globally
+let bearerToken = null;
+
 // Function to generate a Bearer Token
 const getBearerToken = async () => {
     try {
-        console.log("Generating Bearer Token...");
+        console.log("Generating a new Bearer Token...");
         const response = await axios.post('https://api-server.batchleadstacker.com/app/login', {
             email: BATCHLEADS_EMAIL,
             password: BATCHLEADS_PASSWORD,
         });
 
         if (response.data?.data?.token) {
-            console.log("Bearer Token generated successfully.");
-            return response.data.data.token;
+            bearerToken = response.data.data.token;
+            console.log("Bearer Token generated successfully:", bearerToken);
+            return bearerToken;
         } else {
             throw new Error("Token generation failed. Response: " + JSON.stringify(response.data));
         }
     } catch (error) {
         console.error("Error generating token:", error.response?.data || error.message);
-        throw new Error("Failed to generate token. Verify your credentials or account status.");
+        throw new Error("Failed to generate token. Verify your credentials.");
     }
 };
 
 // Function to fetch property data from Batch Leads
-const fetchPropertyData = async (address, token) => {
+const fetchPropertyData = async (address) => {
     try {
-        console.log("Sending property lookup request...");
-        console.log("Using Token:", token);
-        console.log("Address payload:", {
-            requests: [
-                {
-                    address: {
-                        street: address.street,
-                        city: address.city,
-                        state: address.state,
-                        zip: address.zip,
-                    },
-                },
-            ],
-        });
+        if (!bearerToken) {
+            console.log("No token found. Fetching a new one...");
+            await getBearerToken();
+        }
+
+        console.log("Using Bearer Token:", bearerToken);
+        console.log("Sending request with address:", address);
 
         const response = await axios.post(
             'https://api.batchdata.com/api/v1/property/lookup/all-attributes',
@@ -65,7 +62,7 @@ const fetchPropertyData = async (address, token) => {
             },
             {
                 headers: {
-                    Authorization: `Bearer ${token}`,
+                    Authorization: `Bearer ${bearerToken}`,
                     'Content-Type': 'application/json',
                     Accept: 'application/json',
                 },
@@ -80,6 +77,13 @@ const fetchPropertyData = async (address, token) => {
         }
     } catch (error) {
         console.error("Error fetching property data:", error.response?.data || error.message);
+
+        if (error.response?.status === 401) {
+            console.warn("Invalid token detected. Refreshing token...");
+            await getBearerToken(); // Refresh the token
+            return await fetchPropertyData(address); // Retry with a new token
+        }
+
         throw error;
     }
 };
@@ -93,26 +97,10 @@ app.post('/property', async (req, res) => {
     }
 
     try {
-        console.log("Looking up property for:", address);
-
-        // Step 1: Generate a Bearer Token
-        let token = await getBearerToken();
-
-        // Step 2: Fetch property data
-        try {
-            const propertyData = await fetchPropertyData(address, token);
-            return res.status(200).json({ property: propertyData });
-        } catch (error) {
-            if (error.response?.status === 401) {
-                console.warn("Invalid token detected. Regenerating token...");
-                token = await getBearerToken();
-                const retryPropertyData = await fetchPropertyData(address, token);
-                return res.status(200).json({ property: retryPropertyData });
-            }
-            throw error;
-        }
+        const propertyData = await fetchPropertyData(address);
+        return res.status(200).json({ property: propertyData });
     } catch (error) {
-        console.error("Error in /property endpoint:", error.response?.data || error.message);
+        console.error("Error in /property endpoint:", error.message);
         return res.status(500).json({
             error: "Failed to fetch property data.",
             details: error.response?.data || error.message,
