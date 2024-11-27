@@ -16,18 +16,18 @@ async function getBearerToken() {
     try {
         const response = await axios.post('https://api-server.batchleadstacker.com/app/login', {
             email: BATCHLEADS_EMAIL,
-            password: BATCHLEADS_PASSWORD,
+            password: BATCHLEADS_PASSWORD
         });
 
         if (response.data && response.data.data && response.data.data.token) {
-            console.log("Bearer Token generated successfully");
+            console.log("Bearer Token generated successfully:", response.data.data.token);
             return response.data.data.token;
         } else {
             throw new Error("Token generation failed: " + JSON.stringify(response.data));
         }
     } catch (error) {
         console.error("Error fetching Bearer Token:", error.response?.data || error.message);
-        throw new Error("Invalid login credentials or API issue.");
+        throw new Error("Invalid login credentials or expired plan.");
     }
 }
 
@@ -43,24 +43,28 @@ app.post('/property', async (req, res) => {
         // Fetch Bearer Token
         const token = await getBearerToken();
 
-        // Request property data from Batch API
+        // Log the address and token for debugging
+        console.log("Fetching data for address:", address);
+        console.log("Using Bearer Token:", token);
+
+        // Request property data from Batch Data API
         const propertyResponse = await axios.post(
             'https://api.batchdata.com/api/v1/property/lookup/all-attributes',
             {
                 requests: [
                     {
                         address: {
-                            street: address,
-                        },
-                    },
-                ],
+                            street: address
+                        }
+                    }
+                ]
             },
             {
                 headers: {
-                    Authorization: `Bearer ${token}`,
+                    Authorization: `Bearer ${token}`, // Use the token
                     'Content-Type': 'application/json',
-                    Accept: 'application/json',
-                },
+                    Accept: 'application/json'
+                }
             }
         );
 
@@ -71,6 +75,7 @@ app.post('/property', async (req, res) => {
             !propertyResponse.data.results.properties ||
             propertyResponse.data.results.properties.length === 0
         ) {
+            console.warn("No property data found for address:", address);
             return res.status(404).json({ error: "No property data found." });
         }
 
@@ -79,9 +84,15 @@ app.post('/property', async (req, res) => {
         res.json({ property: propertyData });
     } catch (error) {
         console.error("Error fetching property data:", error.response?.data || error.message);
+
+        // Handle specific API errors (e.g., invalid token or unauthorized access)
+        if (error.response && error.response.status === 401) {
+            return res.status(401).json({ error: "Unauthorized", message: "Invalid token or expired session" });
+        }
+
         res.status(500).json({
             error: "Failed to fetch property data",
-            details: error.response?.data || error.message,
+            details: error.response?.data || error.message
         });
     }
 });
